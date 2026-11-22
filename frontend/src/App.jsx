@@ -14,9 +14,6 @@ const DEFAULT_PRODUCTS = [
   { id: 10, name: "iPhone Air 256GB", system: "iOS", price: 3499.00, ram: 12, storage: 256 }
 ];
 
-const STORAGE_OPTIONS = [512, 256, 128];
-const RAM_OPTIONS = [12, 8, 6];
-
 function Price({ value }) {
   const [whole, cents] = value.toFixed(2).split('.');
   return (
@@ -81,6 +78,8 @@ function ProductCard({ item, liked, compared, onLike, onCompare, onOpen }) {
 
 export default function App() {
   const [products, setProducts] = useState(DEFAULT_PRODUCTS);
+  const [allProducts, setAllProducts] = useState(DEFAULT_PRODUCTS);
+  const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const [sort, setSort] = useState('default');
   const [storageFilter, setStorageFilter] = useState([]);
@@ -89,29 +88,40 @@ export default function App() {
   const [liked, setLiked] = useState([]);
   const [compared, setCompared] = useState([]);
 
+  // Pobranie pełnej listy na start 
   useEffect(() => {
     fetch('http://127.0.0.1:8000/api/products')
       .then(res => res.json())
-      .then(data => setProducts(data))
+      .then(data => setAllProducts(data))
       .catch(() => {});
   }, []);
+
+  // Pobieranie przefiltrowanych produktów z bazy przy zmianie wyszukiwania lub filtrów
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search.trim() !== '') params.append('search', search.trim());
+    if (filter !== 'all') params.append('system', filter);
+    if (sort !== 'default') params.append('sort', sort);
+    storageFilter.forEach(s => params.append('storage', s));
+    ramFilter.forEach(r => params.append('ram', r));
+
+    fetch(`http://127.0.0.1:8000/api/products?${params.toString()}`)
+      .then(res => res.json())
+      .then(data => setProducts(data))
+      .catch(() => {});
+  }, [search, filter, sort, storageFilter, ramFilter]);
+
+  const storageOptions = [...new Set(allProducts.map(p => Number(p.storage)))].sort((a, b) => b - a);
+  const ramOptions = [...new Set(allProducts.map(p => Number(p.ram)))].sort((a, b) => b - a);
 
   const toggle = (list, setList, value) =>
     setList(list.includes(value) ? list.filter(v => v !== value) : [...list, value]);
 
-  const countAll = products.length;
-  const countAndroid = products.filter(p => p.system.toLowerCase() === 'android').length;
-  const countIOS = products.filter(p => p.system.toLowerCase() === 'ios').length;
+  const countAll = allProducts.length;
+  const countAndroid = allProducts.filter(p => p.system.toLowerCase() === 'android').length;
+  const countIOS = allProducts.filter(p => p.system.toLowerCase() === 'ios').length;
 
-  // Puste zaznaczenie w grupie filtrów = brak ograniczenia
-  let visible = products.filter(p =>
-    (filter === 'all' || p.system.toLowerCase() === filter.toLowerCase()) &&
-    (storageFilter.length === 0 || storageFilter.includes(Number(p.storage))) &&
-    (ramFilter.length === 0 || ramFilter.includes(Number(p.ram)))
-  );
-
-  if (sort === 'asc') visible = [...visible].sort((a, b) => a.price - b.price);
-  if (sort === 'desc') visible = [...visible].sort((a, b) => b.price - a.price);
+  const visible = products;
 
   // Widok po kliknięciu w telefon
   if (selectedProduct) {
@@ -146,6 +156,24 @@ export default function App() {
       <main className="container">
         <h1 className="page-title">Smartfony</h1>
 
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Szukaj telefonu..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '10px 14px',
+            borderRadius: '10px',
+            border: '1px solid #2e2e32',
+            background: '#18181b',
+            color: '#fff',
+            marginBottom: '14px'
+          }}
+        />
+
         <div className="toolbar">
           <div className="chips">
             {chips.map(c => (
@@ -171,7 +199,7 @@ export default function App() {
 
           <details className="filter-group" open>
             <summary>Pamięć wbudowana</summary>
-            {STORAGE_OPTIONS.map(v => (
+            {storageOptions.map(v => (
               <label key={v}>
                 <input
                   type="checkbox"
@@ -185,7 +213,7 @@ export default function App() {
 
           <details className="filter-group" open>
             <summary>Pamięć RAM</summary>
-            {RAM_OPTIONS.map(v => (
+            {ramOptions.map(v => (
               <label key={v}>
                 <input
                   type="checkbox"
@@ -213,10 +241,6 @@ export default function App() {
           ))}
         </section>
 
-        <section className="preview">
-          <h3>Wizualizacja docelowego wyglądu strony:</h3>
-          <img src="/glowna.jpg" alt="Wizualizacja docelowego wyglądu strony" />
-        </section>
       </main>
     </div>
   );
