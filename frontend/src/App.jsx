@@ -14,6 +14,11 @@ const DEFAULT_PRODUCTS = [
   { id: 10, name: "iPhone Air 256GB", system: "iOS", price: 3499.00, ram: 12, storage: 256 }
 ];
 
+function formatPrice(value) {
+  const [whole, cents] = Number(value).toFixed(2).split('.');
+  return `${Number(whole).toLocaleString('pl-PL')},${cents} zł`;
+}
+
 function Price({ value }) {
   const [whole, cents] = value.toFixed(2).split('.');
   return (
@@ -31,7 +36,15 @@ function PhoneImage({ item }) {
   return <div className="phone-art" aria-hidden="true" />;
 }
 
-function ProductCard({ item, liked, compared, onLike, onCompare, onOpen }) {
+function ProductCard({ item, liked, compared, onLike, onCompare, onOpen, onAddToCart }) {
+  const [justAdded, setJustAdded] = useState(false);
+
+  const handleAdd = () => {
+    onAddToCart(item);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 900);
+  };
+
   return (
     <article className="card">
       <div className="card-main">
@@ -69,10 +82,169 @@ function ProductCard({ item, liked, compared, onLike, onCompare, onOpen }) {
         </div>
       </div>
 
-      <div className="card-buy">
+      <div
+        className="card-buy"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+          gap: '10px'
+        }}
+      >
         <Price value={item.price} />
+        <button
+          type="button"
+          className="add-to-cart-btn"
+          onClick={handleAdd}
+          style={{
+            padding: '9px 14px',
+            borderRadius: '8px',
+            border: '1px solid #6366f1',
+            background: justAdded ? '#16a34a' : '#4f46e5',
+            color: '#fff',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          {justAdded ? 'Dodano ✓' : 'Dodaj do koszyka'}
+        </button>
       </div>
     </article>
+  );
+}
+
+function CartDrawer({ isOpen, onClose, cartItems, onChangeQty, onRemove, onClear }) {
+  if (!isOpen) return null;
+
+  const totalPrice = cartItems.reduce((sum, entry) => sum + entry.item.price * entry.qty, 0);
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0, 0, 0, 0.65)',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        zIndex: 1000
+      }}
+      onClick={onClose}
+    >
+      <aside
+        style={{
+          width: '100%',
+          maxWidth: '400px',
+          height: '100%',
+          background: '#141417',
+          color: '#fff',
+          borderLeft: '1px solid #2e2e32',
+          padding: '20px',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Koszyk</h2>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: 'transparent',
+                border: '1px solid #3f3f46',
+                color: '#fff',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {cartItems.length === 0 ? (
+            <p style={{ color: '#a1a1aa' }}>Twój koszyk jest pusty.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {cartItems.map(({ item, qty }) => (
+                <li
+                  key={item.id}
+                  style={{
+                    border: '1px solid #27272a',
+                    borderRadius: '10px',
+                    padding: '12px',
+                    background: '#1c1c21'
+                  }}
+                >
+                  <div style={{ fontWeight: 600, marginBottom: '6px' }}>{item.name}</div>
+                  <div style={{ color: '#d4d4d8', fontSize: '0.9rem', marginBottom: '10px' }}>
+                    {formatPrice(item.price * qty)}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => onChangeQty(item.id, qty - 1)}
+                      style={{ padding: '2px 8px', cursor: 'pointer' }}
+                    >
+                      -
+                    </button>
+                    <span>{qty}</span>
+                    <button
+                      type="button"
+                      onClick={() => onChangeQty(item.id, qty + 1)}
+                      style={{ padding: '2px 8px', cursor: 'pointer' }}
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemove(item.id)}
+                      style={{
+                        marginLeft: 'auto',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#f87171',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Usuń
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div style={{ borderTop: '1px solid #2e2e32', paddingTop: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.1rem', marginBottom: '12px' }}>
+            <span>Razem:</span>
+            <span>{formatPrice(totalPrice)}</span>
+          </div>
+          {cartItems.length > 0 && (
+            <button
+              type="button"
+              onClick={onClear}
+              style={{
+                width: '100%',
+                padding: '10px',
+                borderRadius: '8px',
+                border: '1px solid #3f3f46',
+                background: '#27272a',
+                color: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              Wyczyść koszyk
+            </button>
+          )}
+        </div>
+      </aside>
+    </div>
   );
 }
 
@@ -87,8 +259,44 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [liked, setLiked] = useState([]);
   const [compared, setCompared] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [cartOpen, setCartOpen] = useState(false);
 
-  // Pobranie pełnej listy na start 
+  const totalCartCount = cart.reduce((sum, entry) => sum + entry.qty, 0);
+
+  const handleAddToCart = (product) => {
+    setCart((prev) => {
+      const existing = prev.find((entry) => entry.item.id === product.id);
+      if (existing) {
+        return prev.map((entry) =>
+          entry.item.id === product.id ? { ...entry, qty: entry.qty + 1 } : entry
+        );
+      }
+      return [...prev, { item: product, qty: 1 }];
+    });
+  };
+
+  const handleChangeQty = (productId, nextQty) => {
+    if (nextQty <= 0) {
+      setCart((prev) => prev.filter((entry) => entry.item.id !== productId));
+      return;
+    }
+    setCart((prev) =>
+      prev.map((entry) =>
+        entry.item.id === productId ? { ...entry, qty: nextQty } : entry
+      )
+    );
+  };
+
+  const handleRemoveFromCart = (productId) => {
+    setCart((prev) => prev.filter((entry) => entry.item.id !== productId));
+  };
+
+  const handleClearCart = () => {
+    setCart([]);
+  };
+
+  // Pobranie pełnej listy na start
   useEffect(() => {
     fetch('http://127.0.0.1:8000/api/products')
       .then(res => res.json())
@@ -123,13 +331,41 @@ export default function App() {
 
   const visible = products;
 
+  const renderTopbar = () => (
+    <header
+      className="topbar"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '12px 24px'
+      }}
+    >
+      <span className="logo">Sklep GSM</span>
+      <button
+        type="button"
+        className="cart-btn"
+        onClick={() => setCartOpen(true)}
+        style={{
+          padding: '8px 14px',
+          borderRadius: '8px',
+          border: '1px solid #3f3f46',
+          background: '#18181b',
+          color: '#fff',
+          fontWeight: 600,
+          cursor: 'pointer'
+        }}
+      >
+        🛒 Koszyk ({totalCartCount})
+      </button>
+    </header>
+  );
+
   // Widok po kliknięciu w telefon
   if (selectedProduct) {
     return (
       <div className="page">
-        <header className="topbar">
-          <span className="logo">Sklep GSM</span>
-        </header>
+        {renderTopbar()}
         <main className="container">
           <button className="back" onClick={() => setSelectedProduct(null)}>
             ← Wróć do listy
@@ -137,6 +373,14 @@ export default function App() {
           <h1 className="page-title">{selectedProduct.name}</h1>
           <img className="mockup" src="/karta.jpg" alt="Makieta podstrony produktu" />
         </main>
+        <CartDrawer
+          isOpen={cartOpen}
+          onClose={() => setCartOpen(false)}
+          cartItems={cart}
+          onChangeQty={handleChangeQty}
+          onRemove={handleRemoveFromCart}
+          onClear={handleClearCart}
+        />
       </div>
     );
   }
@@ -149,9 +393,7 @@ export default function App() {
 
   return (
     <div className="page">
-      <header className="topbar">
-        <span className="logo">Sklep GSM</span>
-      </header>
+      {renderTopbar()}
 
       <main className="container">
         <h1 className="page-title">Smartfony</h1>
@@ -237,11 +479,20 @@ export default function App() {
               onLike={() => toggle(liked, setLiked, item.id)}
               onCompare={() => toggle(compared, setCompared, item.id)}
               onOpen={() => setSelectedProduct(item)}
+              onAddToCart={handleAddToCart}
             />
           ))}
         </section>
-
       </main>
+
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cartItems={cart}
+        onChangeQty={handleChangeQty}
+        onRemove={handleRemoveFromCart}
+        onClear={handleClearCart}
+      />
     </div>
   );
 }
